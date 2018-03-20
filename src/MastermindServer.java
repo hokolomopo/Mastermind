@@ -92,7 +92,6 @@ public class MastermindServer implements Runnable{
 						case PROPOSITION :
 							//Read the proposition
 							byte[] combi = readMsg(MP.COMBINATIONS_LENGHT);
-							Sytem.out.println("Server read "+ MP.print(combi));
 
 							//Setup the header and body of the answer
 							msg = this.manageReceivedCombination(combi);
