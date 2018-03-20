@@ -6,52 +6,68 @@ import java.util.Scanner;
 
 public class MastermindClient {
 
+	private final static int TIME_OUT_DELAY = 10000;
+
 	private Scanner sc = new Scanner (System.in);
 
 	private int trysLeft = MP.NUMBER_OF_TRYS;
-	
+
 	private Socket socket;
-	
+
 	private boolean gameWon = false;
 	private boolean gameLost = false;
-	
+
 	private OutputStream output;
 	private InputStream input;
-	
+
 	public static void main(String args[]){
 		MastermindClient client = new MastermindClient();
-		
+
 		client.run();
-		
+
 	}
-	
+
 	private MastermindClient() {
-		System.out.println("Welcome to tha MasterMind game !");
-		
+		System.out.println("Welcome to tha MasterMind game !\n"
+				+ "The supported colors are : " + MPColors.getColorList());
+
 	}
-	
-	
+
+	//Main loop of the client
 	private void run(){
-		
+
+		//The whole thing is in a while loop to be able to try to reconnect to the server if an exception occurs
 		while(true) {
 			try {
 				this.connectToServer();
-		
+
 				while(true) {
 					switch(this.getInput()) {
-						case 1 : 
+						//Send a proposition to the server
+						case 1 :
+
+							//Send proposition to server
 							this.sendProposition(this.getProposition());
-							this.manageResponse(this.receiveMsg(MPClt.CLIENT_PROPOSITION), MPClt.CLIENT_PROPOSITION);
+
+							//Parse server response
+							this.manageResponse(this.receiveMsg(MPClt.PROPOSITION), MPClt.PROPOSITION);
 							break;
+						//List already tried propositions
 						case 2 :
-							this.sendMessage(MPClt.CLIENT_LIST);
-							this.manageResponse(this.receiveMsg(MPClt.CLIENT_LIST), MPClt.CLIENT_LIST);
+
+							//Send request to server
+							this.sendMessage(MPClt.LIST);
+
+							//Parse server response
+							this.manageResponse(this.receiveMsg(MPClt.LIST), MPClt.LIST);
 							break;
-						case 3 : 
-							System.exit(0);
+						//Close the client
+						case 3 :
+							this.close();
 							break;
 					}
-					
+
+					//Check if game is won/lost
 					if(this.gameLost)
 						this.loose();
 					else if(this.gameWon)
@@ -63,219 +79,310 @@ public class MastermindClient {
 			}
 		}
 	}
-	
+
+	//Get user choice in the main menu (Propose a combination/List combinations proposed/Quit)
 	private int getInput() {
 
 		int input;
-		
+
+		System.out.println("What do you want to do ?\n\n"
+				+ "1. Propose a combination ("+trysLeft+" trys left)\n"
+				+ "2. See already proposed combinations\n"
+				+ "3. Quit the game");
+
+
 		while(true) {
-			System.out.println("What do you want to do ?\n\n"
-					+ "1. Propose a combinasion ("+trysLeft+" trys left)\n"
-					+ "2. See already proposed combinasion\n"
-					+ "3. Quit the game\n");
-			
 			try {
+				//Get input and parse it to int
 				String s = sc.next();
 				input = Integer.parseInt(s);
 			}catch(Exception  e) {
 				input = 0;
 			}
-			
-			if(input > 0 && input < 4)
+
+			if(input > 0 && input < 4) {
 				break;
-			
-			System.out.println("Please enter a valid number\n");
-				
+			}
+
+
+			System.out.println("Please enter a valid number");
+			sc.nextLine();
+
 		}
-		
+
+		System.out.println("");
+
+		//Clean the scanner
+		sc.nextLine();
+
 		return input;
 	}
-	
+
+	//Get user proposition converted into array of byte formatted according to the Mastermind Protocol
 	private byte[] getProposition() {
 		System.out.println("Enter a proposition : ");
-		
+
 		int currLen = 0, value;
-		byte[] colors = new byte[4];
+		byte[] colors = new byte[MP.COMBINATIONS_LENGHT];
 		String input;
-		
-		while(currLen < 4) {
-			
+
+		while(currLen < MP.COMBINATIONS_LENGHT) {
+
 			input = sc.next();
 			value = MPColors.getColorValue(input);
-			
+
 			if(value == -1) {
 				System.out.println(input+" isn't a valid color name");
+				sc.nextLine();
 				currLen = 0;
 				continue;
 			}
-			
+
 			colors[currLen++] = (byte) value;
 
 		}
-				
+
+		System.out.println("");
+
+		//Clean the scanner
+		sc.nextLine();
+
 		return colors;
 	}
-	
+
+	/*
+	 * Connect to server localhost at port 2340
+	 * Will loop until a connection is established
+	 * After the connection is established, send a START_SERVER message to the server
+	 * 	and receive the expected answer from the server
+	 *
+	 * Throws IOException if it fails to send the message or receive the message
+	*/
 	public int connectToServer() throws IOException {
 		boolean connected = false;
-		
+
 		System.out.println("Starting a new game ...");
 
+		//Loop until a connection to the server is established
 		while(!connected) {
 			try {
-			socket = new Socket("localhost", 2340);
-			
-			output = socket.getOutputStream () ;
-			input = socket.getInputStream () ;
-			
-			connected = true;
+				socket = new Socket("localhost", 2340);
+
+				output = socket.getOutputStream () ;
+				input = socket.getInputStream () ;
+
+				socket.setSoTimeout(TIME_OUT_DELAY);
+
+				connected = true;
 			}catch(Exception e) {
-				System.out.print("Unable to connecto to server : "+e.getMessage()+" ...Trying again");
 				try {
-					for(int j = 0;j < 3;j++) {
-					Thread.sleep(1000);
+				System.out.print("Unable to connecto to server : "+e.getMessage()+" ...Trying again");
+
+				//Wait a bit before the next try to connect to server
+				for(int j = 0;j < 3;j++) {
 					System.out.print(".");
+						Thread.sleep(1000);
 					}
-					
-				} catch (InterruptedException e1) {
-				}
 				System.out.println("");
+				}
+				catch (InterruptedException e1) {
+				}
 			}
 		}
-		
-		this.sendMessage(MPClt.CLIENT_NEW_GAME);
-		this.receiveMsg(MPClt.CLIENT_NEW_GAME);
-		
-		System.out.println("Connected to server !");
-						
+
+		//Send and receive message to create a new game
+		this.sendMessage(MPClt.NEW_GAME);
+		this.receiveMsg(MPClt.NEW_GAME);
+
+		System.out.println("Connected to server !\n");
+
 		return 0;
-		
+
 	}
 
-	private int sendProposition(byte[] prop) throws IOException {
-		
-		byte[] msg = new byte[MPSrv.HEADER_LENGHT + MPSrv.COMBINAISON_LENGHT];
-		
-		MP.setupHeader(msg, MPClt.CLIENT_PROPOSITION);
-		
-		for(int i = 0;i < 4;i++)
-			msg[i+MP.HEADER_LENGHT] = prop[i];
-		
-		System.out.println("Client send "+MP.print(msg));
+
+	/*
+	 * Send a proposition to the server
+	 * The combination to send should be in the prop byte array
+	 *
+	 *  Throws IOException if send failed
+	 */
+	private void sendProposition(byte[] prop) throws IOException {
+
+		byte[] msg = new byte[MPSrv.HEADER_LENGHT + MPSrv.COMBINATIONS_LENGHT];
+
+		MP.setupHeader(msg, MPClt.PROPOSITION);
+
+		for(int i = 0;i < MP.COMBINATIONS_LENGHT;i++)
+			msg[MP.HEADER_LENGHT + i] = prop[i];
+
 		output.write(msg);
 		output.flush();
-		
-		return 0;
+
 	}
-	
-	private int sendMessage(MPClt msgType) throws IOException {
-		
-		byte[] msg = new byte[2];
+
+	/*
+	 * Send a message to the server of type msgType according to the Mastermind Protocol
+	 *
+	 *  Throws IOException if send failed
+	 */
+	private void sendMessage(MPClt msgType) throws IOException {
+
+		byte[] msg = new byte[MP.HEADER_LENGHT];
 
 		MP.setupHeader(msg, msgType);
-		
-		System.out.println("Client send msg "+MP.print(msg));
+
 		output.write(msg);
 		output.flush();
 
-		return 0;
-
 	}
-	
+
+	/*
+	 * Receive a message from the server with the expected answer being an answer
+	 * 	to a message of type msgType
+	 *
+	 *  Throws IOException if receive failed
+	 *  Will close the program if the response from the server isn't what was expected
+	 */
 	private byte[] receiveMsg(MPClt msgType) throws IOException{
-		
-		byte[] msg = new byte[MP.HEADER_LENGHT + msgType.acknowledgmentType().getMsgLenght()];	
-		System.out.println("Size "+msg.length+" "+msgType.acknowledgmentType()+" "+msgType);
-		input.read(msg);
+
+		//Create a byte array of the size of the message we are expecting
+		int expectedLenght = MP.HEADER_LENGHT + msgType.acknowledgmentType().getMsgLenght();
+
+		byte[] msg = readMsg(expectedLenght);
+
 		System.out.println(msgType+" received, content "+MP.print(msg));
-		
+
 		if(msg[0] != MPSrv.PROTOCOL_VERSION) {
 			System.err.println("Error : The server isn't using the same protocol version as the client...closing the client");
-			System.exit(-1);
+			this.close();
 		}
-		else if(msg[1] != msgType.acknowledgmentValue()) {
+
+		if(msg[1] != msgType.acknowledgmentValue()) {
 			System.err.println("Error : The server isn't sending the expected response");
-			System.exit(-1);
+			this.close();
 		}
 
 		return msg;
-		
-	}	
 
+	}
+
+	/*
+	 * Read and return a message from the input stream of size msgLen
+	 * Will wait until msgLen bytes ares read from the stream or the stream is closed
+	 *
+	 * Throws IOException if the end of the input stream is reached or if we were unable to read from the stream
+	 */
+	private byte[] readMsg(int msgLen) throws IOException {
+		System.out.println("Try to read msg of size " + msgLen);
+		int i = 0;
+		byte[] msg = new byte[msgLen];
+
+		//Loop until we read the expected number of elements on the string
+		while(i < msgLen) {
+
+			//Try to read the remaining elements
+			int read = input.read(msg, i, msgLen - i);
+			System.out.println("Read " + read + " : " + MP.print(msg) + " out of "+ (msgLen - i));
+			i += read;
+			System.out.println(i);
+			//End of stream
+			if(read < 0)
+				throw new IOException("EOF reached");
+		}
+		System.out.println("read");
+		return msg;
+	}
+
+
+	// Manage a message (msg) received from the server, the request to the server should be of type msgType
 	private void manageResponse(byte[] msg, MPClt msgType) {
-		
+
 		switch(msgType) {
-			case CLIENT_PROPOSITION :
-				System.out.println("You found "+msg[2]+" colors at the right place, and "+msg[3]+" right colors at the wrong place");
-				
-				if(msg[2] == MP.COMBINAISON_LENGHT) {
+			case PROPOSITION :
+				System.out.println("You found "+msg[MP.HEADER_LENGHT]+" colors at the right place, "
+						+ "and "+msg[MP.HEADER_LENGHT+1]+" right colors at the wrong place");
+
+				//Check if it's a victory or a loss
+				if(msg[MP.HEADER_LENGHT] == MP.COMBINATIONS_LENGHT) {
 					gameWon = true;
 					return;
 				}
-				
-				if(--this.trysLeft == 0) {
+				else if(--this.trysLeft == 0) {
 					gameLost = true;
 					return;
 				}
-				
-				System.out.println("Try lefts : " + trysLeft);
+
+				System.out.println("Try lefts : " + trysLeft + "\n");
 				break;
-			case CLIENT_LIST :
-				
-				if(msg[2] == 0)
-					System.out.println("You haven't tried any combinsaions yet");
-				
-				for(int i = 0;i < msg[2];i++) {
-					
+			case LIST :
+
+				if(msg[MP.HEADER_LENGHT] == 0)
+					System.out.println("You haven't tried any combinations yet...\n");
+
+				for(int i = 0;i < msg[MP.HEADER_LENGHT];i++) {
+
 					System.out.print("Try number "+i+" was : ");
-					
-					for(int j = 0;j < MPSrv.COMBINAISON_LENGHT;j++)
-						System.out.print(MPColors.getColorName((int)msg[MP.HEADER_LENGHT + 1 + i * (MP.COMBINAISON_LENGHT + 2) + j]) + " ");
-					
-					System.out.println("\nWith : -"+msg[MP.HEADER_LENGHT + 1 + i* (MP.COMBINAISON_LENGHT + 2) + MP.COMBINAISON_LENGHT]+" colors at the right place \n       -"+
-						msg[MP.HEADER_LENGHT + 1 + i* (MP.COMBINAISON_LENGHT + 2) + MP.COMBINAISON_LENGHT + 1]+" right colors at the wrong place\n");
-					
+
+					for(int j = 0;j < MPSrv.COMBINATIONS_LENGHT;j++)
+						System.out.print(MPColors.getColorName((int)msg[MP.HEADER_LENGHT + 1 + i * (MP.COMBINATIONS_LENGHT + 2) + j]) + " ");
+
+					System.out.println("\nWith : -"+msg[MP.HEADER_LENGHT + 1 + i* (MP.COMBINATIONS_LENGHT + 2) + MP.COMBINATIONS_LENGHT]+" colors at the right place \n       -"+
+						msg[MP.HEADER_LENGHT + 1 + i* (MP.COMBINATIONS_LENGHT + 2) + MP.COMBINATIONS_LENGHT + 1]+" right colors at the wrong place\n");
+
 				}
 				break;
-			default : 
+			default :
 				break;
-			
+
 		}
 	}
-	
+
+	/*
+	 * Display the win message and ask if the user want to play again
+	 *
+	 * Throws IOException if the user wanted to play again but the connection failed
+	 * Quit the game if the user didn't want to play again
+	 */
 	private void win() throws IOException {
-		System.out.println("Congratulations ! You found the right cominaison !");
-		
+		System.out.println("Congratulations ! You found the right combination !");
+
 		this.playAgain();
 	}
-	
+
+	/*
+	 * Display the defeat message and ask if the user want to play again
+	 *
+	 * Throws IOException if the user wanted to play again but the connection failed
+	 * Quit the game if the user didn't want to play again
+	 */
 	private void loose() throws IOException {
 		System.out.println("How sad ... You lost..");
-		
+
 		this.playAgain();
 	}
-	
+
+	/*
+	 * Ask if the user want to play again
+	 *
+	 * Throws IOException if the user wanted to play again but the connection failed
+	 * Quit the game if the user didn't want to play again
+	 */
 	private void playAgain() throws IOException {
 		System.out.println("Do you want to play again ?\n"
 				+ "1. Yes\n"
 				+ "2. No\n");
-		
+
 		String s = sc.next();
-		
-		if(!s.equals("1")) {
-			System.out.println("See you soon !");
-			sc.close();
-			try {
-				socket.close();
-			} catch (IOException e) {
-			}
-			System.exit(0);
-		}
-		
-		this.reset();		
+
+		if(!s.equals("1"))
+			this.close();
+
+		this.reset();
 		this.connectToServer();
 	}
-	
+
+	//Reset game parameters and close the socket
 	private void reset() {
 		this.gameLost = false;
 		this.gameWon = false;
@@ -284,5 +391,17 @@ public class MastermindClient {
 			socket.close();
 		} catch (IOException e) {
 		}
+	}
+
+	//Close the program, closing the process and the scanner
+	private void close() {
+		System.out.println("See you soon !");
+		sc.close();
+		try {
+			socket.close();
+		} catch (IOException e) {
+		}
+		System.exit(0);
+
 	}
 }

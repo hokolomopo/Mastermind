@@ -1,6 +1,6 @@
 
 public enum MPClt implements MP{
-	CLIENT_NEW_GAME(0), CLIENT_PROPOSITION(1), CLIENT_LIST(2);
+	NEW_GAME(0), PROPOSITION(1), LIST(2);
 	
 	private int value;
 	
@@ -9,38 +9,41 @@ public enum MPClt implements MP{
 	}
 	
 	@Override
-	public int getValue() {
-		return this.value;
+	public byte getValue() {
+		return (byte)this.value;
 	}
 	
+	//Return the value of the acknowledgment of this type of client request
 	public int acknowledgmentValue() {
 		switch(this) {
-			case CLIENT_NEW_GAME :
-				return MPSrv.SRV_NEW_GAME_STARTED.getValue();
-			case CLIENT_LIST :
-				return MPSrv.SRV_LIST_REQUEST_RECEIVED.getValue();
-			case CLIENT_PROPOSITION :
-				return MPSrv.SRV_COMBI_RECEIVED.getValue();
+			case NEW_GAME :
+				return MPSrv.NEW_GAME_STARTED.getValue();
+			case LIST :
+				return MPSrv.LIST_REQUEST_RECEIVED.getValue();
+			case PROPOSITION :
+				return MPSrv.COMBINAISON_RECEIVED.getValue();
 			default :
-				return MPSrv.SRV_ERROR.getValue();
+				return MPSrv.ERROR.getValue();
 		}
 	}
 	
+	//Return the type of the acknowledgment of this type of client request
 	public MPSrv acknowledgmentType() {
 		switch(this) {
-			case CLIENT_NEW_GAME :
-				return MPSrv.SRV_NEW_GAME_STARTED;
-			case CLIENT_LIST :
-				return MPSrv.SRV_LIST_REQUEST_RECEIVED;
-			case CLIENT_PROPOSITION :
-				return MPSrv.SRV_COMBI_RECEIVED;
+			case NEW_GAME :
+				return MPSrv.NEW_GAME_STARTED;
+			case LIST :
+				return MPSrv.LIST_REQUEST_RECEIVED;
+			case PROPOSITION :
+				return MPSrv.COMBINAISON_RECEIVED;
 			default :
-				return MPSrv.SRV_ERROR;
+				return MPSrv.ERROR;
 		}
 	}
 
 
-	public static MPClt valueToClientRequest(int value) {
+	//Convert a value to a type of client request
+	public static MPClt valueToClientRequest(byte value) {
 		for(MPClt m : MPClt.values())
 			if(m.getValue() == value)
 				return m;
@@ -50,14 +53,13 @@ public enum MPClt implements MP{
 	@Override
 	public int getMsgLenght() {
 		switch(this) {
-			case CLIENT_NEW_GAME :
-			case CLIENT_LIST :
+			case NEW_GAME :
+			case LIST :
 				return 0;
-			case CLIENT_PROPOSITION :
-				return MPSrv.COMBINAISON_LENGHT;
+			case PROPOSITION :
+				return MPSrv.COMBINATIONS_LENGHT;
 		}
 		return -1;
 	}
-		
-
+	
 }

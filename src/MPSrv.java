@@ -1,6 +1,6 @@
 
 public enum MPSrv implements  MP{
-	SRV_NEW_GAME_STARTED(1), SRV_COMBI_RECEIVED(2), SRV_LIST_REQUEST_RECEIVED(3), SRV_ERROR(4);
+	NEW_GAME_STARTED(1), COMBINAISON_RECEIVED(2), LIST_REQUEST_RECEIVED(3), ERROR(4);
 
 	
 	private int value;
@@ -10,22 +10,22 @@ public enum MPSrv implements  MP{
 	}
 	
 	@Override
-	public int getValue() {
-		return this.value;
+	public byte getValue() {
+		return (byte)this.value;
 	}
 	
 	@Override
 	public int getMsgLenght() {
 		switch(this) {
-			case SRV_NEW_GAME_STARTED :
-			case SRV_ERROR :
+			case NEW_GAME_STARTED :
+			case ERROR :
 				return 0;
-			case SRV_COMBI_RECEIVED :
+			case COMBINAISON_RECEIVED :
 				return 2;
-			case SRV_LIST_REQUEST_RECEIVED :
-				return HEADER_LENGHT + 1 + (COMBINAISON_LENGHT + 2) * NUMBER_OF_TRYS;
+			case LIST_REQUEST_RECEIVED :
+				return HEADER_LENGHT + 1 + (COMBINATIONS_LENGHT + 2) * NUMBER_OF_TRYS;
 		}
 		return -1;
 	}
-
+	
 }
