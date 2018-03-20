@@ -251,8 +251,6 @@ public class MastermindClient {
 
 		byte[] msg = readMsg(expectedLenght);
 
-		System.out.println(msgType+" received, content "+MP.print(msg));
-
 		if(msg[0] != MPSrv.PROTOCOL_VERSION) {
 			System.err.println("Error : The server isn't using the same protocol version as the client...closing the client");
 			this.close();
@@ -274,7 +272,6 @@ public class MastermindClient {
 	 * Throws IOException if the end of the input stream is reached or if we were unable to read from the stream
 	 */
 	private byte[] readMsg(int msgLen) throws IOException {
-		System.out.println("Try to read msg of size " + msgLen);
 		int i = 0;
 		byte[] msg = new byte[msgLen];
 
@@ -283,14 +280,11 @@ public class MastermindClient {
 
 			//Try to read the remaining elements
 			int read = input.read(msg, i, msgLen - i);
-			System.out.println("Read " + read + " : " + MP.print(msg) + " out of "+ (msgLen - i));
 			i += read;
-			System.out.println(i);
 			//End of stream
 			if(read < 0)
 				throw new IOException("EOF reached");
 		}
-		System.out.println("read");
 		return msg;
 	}
 
